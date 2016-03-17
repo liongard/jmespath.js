@@ -1097,7 +1097,7 @@
               // Tag the node with a specific attribute so the type
               // checker verify the type.
               refNode.jmespathType = "Expref";
-              refNode.context = value
+              refNode.context = value;
               return refNode;
             default:
               throw new Error("Unknown node type: " + node.type);
@@ -1696,6 +1696,7 @@
   }
 
   function search(data, expression, options) {
+      var node;
       var parser = new Parser();
       // This needs to be improved.  Both the interpreter and runtime depend on
       // each other.  The runtime needs the interpreter to support exprefs.
@@ -1703,8 +1704,10 @@
       var runtime = new Runtime(undefined, undefined, options);
       var interpreter = new TreeInterpreter(runtime);
       runtime.interpreter = interpreter;
-      var node = parser.parse(expression);
-      return interpreter.search(node, data);
+      if(Object.prototype.toString.call(expression) === "[object String]") {
+        node = parser.parse(expression);
+      }
+      return interpreter.search(node || expression, data);
   }
 
   exports.tokenize = tokenize;
