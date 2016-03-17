@@ -1097,6 +1097,7 @@
               // Tag the node with a specific attribute so the type
               // checker verify the type.
               refNode.jmespathType = "Expref";
+              refNode.context = value
               return refNode;
             default:
               throw new Error("Unknown node type: " + node.type);
