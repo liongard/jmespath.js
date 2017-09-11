@@ -307,7 +307,7 @@
                 this.consumeComment(stream);
               } else {
                   var error = new Error("Unknown character:" + stream[this._current]);
-                  error.lineNumber = this.current;
+                  error.lineNumber = this._current;
                   error.name = "LexerError";
                   throw error;
               }
