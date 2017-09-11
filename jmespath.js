@@ -929,7 +929,7 @@
                 } else {
                     return field;
                 }
-              } else {
+              } else if (value !== null) {
                 value = this.scopeChain.resolveReference(node.name);
                 if(value !== null && typeof value !== 'undefined') {
                   return value;
