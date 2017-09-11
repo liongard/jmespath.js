@@ -248,11 +248,13 @@
                   identifier = this._consumeUnquotedIdentifier(stream);
                   tokens.push({type: TOK_UNQUOTEDIDENTIFIER,
                                value: identifier,
-                               start: start});
+                               start: start,
+                               end: this._current});
               } else if (basicTokens[stream[this._current]] !== undefined) {
                   tokens.push({type: basicTokens[stream[this._current]],
                               value: stream[this._current],
-                              start: this._current});
+                              start: this._current,
+                              end: this._current + 1});
                   this._current++;
               } else if (isNum(stream[this._current])) {
                   token = this._consumeNumber(stream);
@@ -267,19 +269,22 @@
                   identifier = this._consumeQuotedIdentifier(stream);
                   tokens.push({type: TOK_QUOTEDIDENTIFIER,
                                value: identifier,
-                               start: start});
+                               start: start,
+                               end: this._current});
               } else if (stream[this._current] === "'") {
                   start = this._current;
                   identifier = this._consumeRawStringLiteral(stream);
                   tokens.push({type: TOK_LITERAL,
                                value: identifier,
-                               start: start});
+                               start: start,
+                               end: this._current});
               } else if (stream[this._current] === "`") {
                   start = this._current;
                   var literal = this._consumeLiteral(stream);
                   tokens.push({type: TOK_LITERAL,
                                value: literal,
-                               start: start});
+                               start: start,
+                               end: this._current});
               } else if (operatorStartToken[stream[this._current]] !== undefined) {
                   tokens.push(this._consumeOperator(stream));
               } else if (skipChars[stream[this._current]] !== undefined) {
@@ -290,18 +295,18 @@
                   this._current++;
                   if (stream[this._current] === "&") {
                       this._current++;
-                      tokens.push({type: TOK_AND, value: "&&", start: start});
+                      tokens.push({type: TOK_AND, value: "&&", start: start, end: this._current});
                   } else {
-                      tokens.push({type: TOK_EXPREF, value: "&", start: start});
+                      tokens.push({type: TOK_EXPREF, value: "&", start: start, end: this._current});
                   }
               } else if (stream[this._current] === "|") {
                   start = this._current;
                   this._current++;
                   if (stream[this._current] === "|") {
                       this._current++;
-                      tokens.push({type: TOK_OR, value: "||", start: start});
+                      tokens.push({type: TOK_OR, value: "||", start: start, end: this._current});
                   } else {
-                      tokens.push({type: TOK_PIPE, value: "|", start: start});
+                      tokens.push({type: TOK_PIPE, value: "|", start: start, end: this._current});
                   }
               } else if(stream[this._current] === "#") {
                 this.consumeComment(stream);
@@ -371,7 +376,7 @@
               this._current++;
           }
           var value = parseInt(stream.slice(start, this._current));
-          return {type: TOK_NUMBER, value: value, start: start};
+          return {type: TOK_NUMBER, value: value, start: start, end: this._current};
       },
 
       _consumeLBracket: function(stream) {
@@ -379,12 +384,12 @@
           this._current++;
           if (stream[this._current] === "?") {
               this._current++;
-              return {type: TOK_FILTER, value: "[?", start: start};
+              return {type: TOK_FILTER, value: "[?", start: start, end: this._current};
           } else if (stream[this._current] === "]") {
               this._current++;
-              return {type: TOK_FLATTEN, value: "[]", start: start};
+              return {type: TOK_FLATTEN, value: "[]", start: start, end: this._current};
           } else {
-              return {type: TOK_LBRACKET, value: "[", start: start};
+              return {type: TOK_LBRACKET, value: "[", start: start, end: this._current};
           }
       },
 
@@ -395,28 +400,28 @@
           if (startingChar === "!") {
               if (stream[this._current] === "=") {
                   this._current++;
-                  return {type: TOK_NE, value: "!=", start: start};
+                  return {type: TOK_NE, value: "!=", start: start, end: this._current};
               } else {
-                return {type: TOK_NOT, value: "!", start: start};
+                return {type: TOK_NOT, value: "!", start: start, end: this._current};
               }
           } else if (startingChar === "<") {
               if (stream[this._current] === "=") {
                   this._current++;
-                  return {type: TOK_LTE, value: "<=", start: start};
+                  return {type: TOK_LTE, value: "<=", start: start, end: this._current};
               } else {
-                  return {type: TOK_LT, value: "<", start: start};
+                  return {type: TOK_LT, value: "<", start: start, end: this._current};
               }
           } else if (startingChar === ">") {
               if (stream[this._current] === "=") {
                   this._current++;
-                  return {type: TOK_GTE, value: ">=", start: start};
+                  return {type: TOK_GTE, value: ">=", start: start, end: this._current};
               } else {
-                  return {type: TOK_GT, value: ">", start: start};
+                  return {type: TOK_GT, value: ">", start: start, end: this._current};
               }
           } else if (startingChar === "=") {
               if (stream[this._current] === "=") {
                   this._current++;
-                  return {type: TOK_EQ, value: "==", start: start};
+                  return {type: TOK_EQ, value: "==", start: start, end: this._current};
               }
           }
       },
@@ -543,6 +548,7 @@
 
       expression: function(rbp) {
           var leftToken = this._lookaheadToken(0);
+          var start = 0 + this.index;
           this._advance();
           var left = this.nud(leftToken);
           var currentToken = this._lookahead(0);
@@ -551,6 +557,9 @@
               left = this.led(currentToken, left);
               currentToken = this._lookahead(0);
           }
+          var endToken = this.tokens[this.index-1];
+          left.start = this.tokens[start].start;
+          left.end = endToken.end;
           return left;
       },
 
@@ -1122,7 +1131,7 @@
               for (i = 0; i < node.children.length; i++) {
                   resolvedArgs.push(this.visit(node.children[i], value));
               }
-              return this.runtime.callFunction(node.name, resolvedArgs);
+              return this.runtime.callFunction(node.name, resolvedArgs, node);
             case "ExpressionReference":
               var refNode = node.children[0];
               // Tag the node with a specific attribute so the type
@@ -1269,16 +1278,23 @@
   }
 
   Runtime.prototype = {
-    callFunction: function(name, resolvedArgs) {
+    callFunction: function(name, resolvedArgs, node) {
       var functionEntry = this.functionTable[name];
-      if (functionEntry === undefined) {
-        if(this.options.resolveUnknownFunction) {
-          return this.options.resolveUnknownFunction(name, resolvedArgs, this);
+      try {
+        if (functionEntry === undefined) {
+          if(this.options.resolveUnknownFunction) {
+            return this.options.resolveUnknownFunction(name, resolvedArgs, this);
+          }
+          throw new Error("Unknown function: " + name + "()");
         }
-        throw new Error("Unknown function: " + name + "()");
+        this._validateArgs(name, resolvedArgs, functionEntry._signature);
+        return functionEntry._func.call(this, resolvedArgs);
+      } catch (e) {
+        e.lineNumber = node.start;
+        e.lineLength = node.end - node.start;
+        e.arguments = JSON.stringify(resolvedArgs);
+        throw e;
       }
-      this._validateArgs(name, resolvedArgs, functionEntry._signature);
-      return functionEntry._func.call(this, resolvedArgs);
     },
 
     _validateArgs: function(name, args, signature) {
