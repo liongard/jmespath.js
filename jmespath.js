@@ -204,13 +204,19 @@
               if (identifierStart[stream[this.current]] !== undefined) {
                   start = this.current;
                   identifier = this.consumeUnquotedIdentifier(stream);
-                  tokens.push({type: "UnquotedIdentifier",
-                               value: identifier,
-                               start: start});
+                  tokens.push({
+                    type: "UnquotedIdentifier",
+                    value: identifier,
+                    start: start,
+                    end: this.current
+                  });
               } else if (basicTokens[stream[this.current]] !== undefined) {
-                  tokens.push({type: basicTokens[stream[this.current]],
-                              value: stream[this.current],
-                              start: this.current});
+                  tokens.push({
+                    type: basicTokens[stream[this.current]],
+                    value: stream[this.current],
+                    start: this.current,
+                    end: this.current + 1
+                  });
                   this.current++;
               } else if (numbers[stream[this.current]] !== undefined) {
                   token = this.consumeNumber(stream);
@@ -223,21 +229,30 @@
               } else if (stream[this.current] === "\"") {
                   start = this.current;
                   identifier = this.consumeQuotedIdentifier(stream);
-                  tokens.push({type: "QuotedIdentifier",
-                               value: identifier,
-                               start: start});
+                  tokens.push({
+                    type: "QuotedIdentifier",
+                    value: identifier,
+                    start: start,
+                    end: this.current
+                  });
               } else if (stream[this.current] === "'") {
                   start = this.current;
                   identifier = this.consumeRawStringLiteral(stream);
-                  tokens.push({type: "Literal",
-                               value: identifier,
-                               start: start});
+                  tokens.push({
+                    type: "Literal",
+                    value: identifier,
+                    start: start,
+                    end: this.current
+                  });
               } else if (stream[this.current] === "`") {
                   start = this.current;
                   var literal = this.consumeLiteral(stream);
-                  tokens.push({type: "Literal",
-                               value: literal,
-                               start: start});
+                  tokens.push({
+                    type: "Literal",
+                    value: literal,
+                    start: start,
+                    end: this.current
+                  });
               } else if (operatorStartToken[stream[this.current]] !== undefined) {
                   tokens.push(this.consumeOperator(stream));
               } else if (skipChars[stream[this.current]] !== undefined) {
@@ -248,18 +263,38 @@
                   this.current++;
                   if (stream[this.current] === "&") {
                       this.current++;
-                      tokens.push({type: "And", value: "&&", start: start});
+                      tokens.push({
+                        type: "And",
+                        value: "&&",
+                        start: start,
+                        end: this.current
+                      });
                   } else {
-                      tokens.push({type: "Expref", value: "&", start: start});
+                      tokens.push({
+                        type: "Expref",
+                        value: "&",
+                        start: start,
+                        end: this.current
+                      });
                   }
               } else if (stream[this.current] === "|") {
                   start = this.current;
                   this.current++;
                   if (stream[this.current] === "|") {
                       this.current++;
-                      tokens.push({type: "Or", value: "||", start: start});
+                      tokens.push({
+                        type: "Or",
+                        value: "||",
+                        start: start,
+                        end: this.current
+                      });
                   } else {
-                      tokens.push({type: "Pipe", value: "|", start: start});
+                      tokens.push({
+                        type: "Pipe",
+                        value: "|",
+                        start: start,
+                        end: this.current
+                      });
                   }
               } else if(stream[this.current] === "#") {
                 this.consumeComment(stream);
@@ -329,7 +364,7 @@
               this.current++;
           }
           var value = parseInt(stream.slice(start, this.current));
-          return {type: "Number", value: value, start: start};
+          return {type: "Number", value: value, start: start, end: this.current};
       },
 
       consumeLBracket: function(stream) {
@@ -337,12 +372,12 @@
           this.current++;
           if (stream[this.current] === "?") {
               this.current++;
-              return {type: "Filter", value: "[?", start: start};
+              return {type: "Filter", value: "[?", start: start, end: this.current};
           } else if (stream[this.current] === "]") {
               this.current++;
-              return {type: "Flatten", value: "[]", start: start};
+              return {type: "Flatten", value: "[]", start: start, end: this.current};
           } else {
-              return {type: "Lbracket", value: "[", start: start};
+              return {type: "Lbracket", value: "[", start: start, end: this.current};
           }
       },
 
@@ -353,28 +388,28 @@
           if (startingChar === "!") {
               if (stream[this.current] === "=") {
                   this.current++;
-                  return {type: "NE", value: "!=", start: start};
+                  return {type: "NE", value: "!=", start: start, end: this.current};
               } else {
-                return {type: "Not", value: "!", start: start};
+                return {type: "Not", value: "!", start: start, end: this.current};
               }
           } else if (startingChar === "<") {
               if (stream[this.current] === "=") {
                   this.current++;
-                  return {type: "LTE", value: "<=", start: start};
+                  return {type: "LTE", value: "<=", start: start, end: this.current};
               } else {
-                  return {type: "LT", value: "<", start: start};
+                  return {type: "LT", value: "<", start: start, end: this.current};
               }
           } else if (startingChar === ">") {
               if (stream[this.current] === "=") {
                   this.current++;
-                  return {type: "GTE", value: ">=", start: start};
+                  return {type: "GTE", value: ">=", start: start, end: this.current};
               } else {
-                  return {type: "GT", value: ">", start: start};
+                  return {type: "GT", value: ">", start: start, end: this.current};
               }
           } else if (startingChar === "=") {
               if (stream[this.current] === "=") {
                   this.current++;
-                  return {type: "EQ", value: "==", start: start};
+                  return {type: "EQ", value: "==", start: start, end: this.current};
               }
           }
       },
@@ -496,12 +531,13 @@
       loadTokens: function(expression) {
           var lexer = new Lexer();
           var tokens = lexer.tokenize(expression);
-          tokens.push({type: "EOF", value: "", start: expression.length});
+          tokens.push({type: "EOF", value: "", start: expression.length, end: this.current});
           this.tokens = tokens;
       },
 
       expression: function(rbp) {
           var leftToken = this.lookaheadToken(0);
+          var start = 0 + this.index;
           this.advance();
           var left = this.nud(leftToken);
           var currentToken = this.lookahead(0);
@@ -510,6 +546,9 @@
               left = this.led(currentToken, left);
               currentToken = this.lookahead(0);
           }
+          var endToken = this.tokens[this.index-1];
+          left.start = this.tokens[start].start;
+          left.end = endToken.end;
           return left;
       },
 
@@ -531,9 +570,9 @@
         var expression;
         switch (token.type) {
           case "Literal":
-            return {type: "Literal", value: token.value};
+            return {type: "Literal", value: token.value, start: token.start, end: token.end};
           case "UnquotedIdentifier":
-            return {type: "Field", name: token.value};
+            return {type: "Field", name: token.value, start: token.start, end: token.end};
           case "QuotedIdentifier":
             var node = {type: "Field", name: token.value};
             if (this.lookahead(0) === "Lparen") {
@@ -632,7 +671,8 @@
             var expression, node;
             while (this.lookahead(0) !== "Rparen") {
               if (this.lookahead(0) === "Current") {
-                expression = {type: "Current"};
+                var token = this.tokens[this.index];
+                expression = {type: "Current", start: token.start, end: token.end};
                 this.advance();
               } else {
                 expression = this.expression(0);
@@ -709,9 +749,13 @@
           if (this.lookahead(0) === "Colon" || this.lookahead(1) === "Colon") {
               return this.parseSliceExpression();
           } else {
+              var token = this.lookaheadToken(0);
               var node = {
-                  type: "Index",
-                  value: this.lookaheadToken(0).value};
+                type: "Index",
+                value: token.value,
+                start: token.start,
+                end: token.end
+              };
               this.advance();
               this.match("Rbracket");
               return node;
@@ -1091,7 +1135,7 @@
               for (i = 0; i < node.children.length; i++) {
                   resolvedArgs.push(this.visit(node.children[i], value));
               }
-              return this.runtime.callFunction(node.name, resolvedArgs);
+              return this.runtime.callFunction(node.name, resolvedArgs, node);
             case "ExpressionReference":
               var refNode = node.children[0];
               // Tag the node with a specific attribute so the type
@@ -1238,16 +1282,23 @@
   }
 
   Runtime.prototype = {
-    callFunction: function(name, resolvedArgs) {
+    callFunction: function(name, resolvedArgs, node) {
       var functionEntry = this.functionTable[name];
-      if (functionEntry === undefined) {
-        if(this.options.resolveUnknownFunction) {
-          return this.options.resolveUnknownFunction(name, resolvedArgs, this);
+      try {
+        if (functionEntry === undefined) {
+          if(this.options.resolveUnknownFunction) {
+            return this.options.resolveUnknownFunction(name, resolvedArgs, node, this);
+          }
+          throw new Error("Unknown function: " + name + "()");
         }
-        throw new Error("Unknown function: " + name + "()");
+        this.validateArgs(name, resolvedArgs, functionEntry.signature);
+        return functionEntry.func.call(this, resolvedArgs);
+      } catch (e) {
+        e.lineNumber = node.start;
+        e.lineLength = node.end - node.start;
+        e.arguments = JSON.stringify(resolvedArgs);
+        throw e;
       }
-      this.validateArgs(name, resolvedArgs, functionEntry.signature);
-      return functionEntry.func.call(this, resolvedArgs);
     },
 
     validateArgs: function(name, args, signature) {
