@@ -1,3 +1,5 @@
+var moment = require('moment');
+
 (function(exports) {
   "use strict";
 
@@ -922,11 +924,16 @@
 
   TreeInterpreter.prototype = {
       search: function(node, value) {
-          return this.visit(node, value);
+        this._orig = value;
+        return this.visit(node, value);
       },
 
       visit: function(node, value) {
-          var matched, current, result, first, second, field, left, right, collected, i;
+        var matched, current, result, first, second, field, left, right, collected, i;
+        if (!value) {
+          value = this._orig;
+        }
+
           switch (node.type) {
             case "Field":
               if (value !== null && isObject(value)) {
@@ -1043,6 +1050,14 @@
             case "Comparator":
               first = this.visit(node.children[0], value);
               second = this.visit(node.children[1], value);
+              if (moment(first).isValid()) {
+                first = moment(first);
+              }
+
+              if (moment(second).isValid()) {
+                second = moment(second);
+              }
+
               switch(node.name) {
                 case TOK_EQ:
                   result = strictDeepEqual(first, second);
@@ -1131,7 +1146,7 @@
               for (i = 0; i < node.children.length; i++) {
                   resolvedArgs.push(this.visit(node.children[i], value));
               }
-              return this.runtime.callFunction(node.name, resolvedArgs, node);
+              return this.runtime.callFunction(node.name, resolvedArgs, value);
             case "ExpressionReference":
               var refNode = node.children[0];
               // Tag the node with a specific attribute so the type
@@ -1207,8 +1222,17 @@
         // types.  If the type is "any" then no type checking
         // occurs on the argument.  Variadic is optional
         // and if not provided is assumed to be false.
+        extract: {_func: this._functionExtract, _signature: [{types: [TYPE_NUMBER, TYPE_STRING]}, {types: [TYPE_ANY]}]},
+        diff: {_func: this._functionDiff, _signature: [{types: [TYPE_NUMBER, TYPE_STRING]}, {types: [TYPE_NUMBER, TYPE_STRING]}, {types: [TYPE_ANY]}, {types: [TYPE_ANY]}]},
+        "add_dates": {_func: this._functionAddDates, _signature: [{types: [TYPE_NUMBER, TYPE_STRING]}, {types: [TYPE_NUMBER, TYPE_STRING]}]},
+        "subtract_dates": {_func: this._functionSubtractDates, _signature: [{types: [TYPE_NUMBER, TYPE_STRING]}, {types: [TYPE_NUMBER, TYPE_STRING]}]},
         abs: {_func: this._functionAbs, _signature: [{types: [TYPE_NUMBER]}]},
         avg: {_func: this._functionAvg, _signature: [{types: [TYPE_ARRAY_NUMBER]}]},
+        concat: {
+          _func: this._functionConcat,
+          _signature: [{types: [TYPE_ARRAY, TYPE_STRING]},
+                      {types: [TYPE_ARRAY, TYPE_STRING]}]
+        },
         ceil: {_func: this._functionCeil, _signature: [{types: [TYPE_NUMBER]}]},
         contains: {
             _func: this._functionContains,
@@ -1222,7 +1246,7 @@
             _func: this._functionLength,
             _signature: [{types: [TYPE_STRING, TYPE_ARRAY, TYPE_OBJECT]}]},
         let: {
-            _func: this.functionLet,
+            _func: this._functionLet,
             _signature: [{types: [TYPE_OBJECT]}, {types: [TYPE_EXPREF]}]},
         map: {
             _func: this._functionMap,
@@ -1249,6 +1273,19 @@
           _func: this._functionMinBy,
           _signature: [{types: [TYPE_ARRAY]}, {types: [TYPE_EXPREF]}]
         },
+        innerJoin: {
+          _func: this._functionInnerJoin,
+          _signature: [{types: [TYPE_ARRAY]}, {types: [TYPE_ARRAY]}, {types: [TYPE_EXPREF]}]
+        },
+        leftJoin: {
+          _func: this._functionLeftJoin,
+          _signature: [{types: [TYPE_ARRAY]}, {types: [TYPE_ARRAY]}, {types: [TYPE_EXPREF]}]
+        },
+        rightJoin: {
+          _func: this._functionRightJoin,
+          _signature: [{types: [TYPE_ARRAY]}, {types: [TYPE_ARRAY]}, {types: [TYPE_EXPREF]}]
+        },
+        parent: {_func: this._functionParent, _signature: [{types: [TYPE_STRING]}]},
         type: {_func: this._functionType, _signature: [{types: [TYPE_ANY]}]},
         keys: {_func: this._functionKeys, _signature: [{types: [TYPE_OBJECT]}]},
         values: {_func: this._functionValues, _signature: [{types: [TYPE_OBJECT]}]},
@@ -1264,10 +1301,12 @@
                 {types: [TYPE_ARRAY_STRING]}
             ]
         },
+        uniq: {_func: this._functionUniq, _signature: [{types: [TYPE_ARRAY]}]},
         reverse: {
             _func: this._functionReverse,
             _signature: [{types: [TYPE_STRING, TYPE_ARRAY]}]},
         "to_array": {_func: this._functionToArray, _signature: [{types: [TYPE_ANY]}]},
+        "to_epoch": {_func: this._functionToEpoch, _signature: [{types: [TYPE_STRING]}]},
         "to_string": {_func: this._functionToString, _signature: [{types: [TYPE_ANY]}]},
         "to_number": {_func: this._functionToNumber, _signature: [{types: [TYPE_ANY]}]},
         "not_null": {
@@ -1403,6 +1442,62 @@
         }
     },
 
+    _functionExtract: function(resolvedArgs) {
+      if (resolvedArgs[0] === 'now') {
+        resolvedArgs[0] = moment();
+      }
+
+      return moment(resolvedArgs[0])[resolvedArgs[1]];
+    },
+
+    _functionDiff: function(resolvedArgs) {
+      if (resolvedArgs[0] === 'now') {
+        resolvedArgs[0] = moment();
+      }
+
+      if (resolvedArgs[1] === 'now') {
+        resolvedArgs[1] = moment();
+      }
+
+      return moment(resolvedArgs[0]).diff(moment(resolvedArgs[1]), resolvedArgs[2], resolvedArgs[3]);
+    },
+
+    _functionAddDates: function(resolvedArgs) {
+      if (resolvedArgs[0] === 'now') {
+        resolvedArgs[0] = moment();
+      }
+
+      if (resolvedArgs[1] === 'now') {
+        resolvedArgs[1] = moment();
+      }
+
+      return moment(resolvedArgs[0]).add(moment(resolvedArgs[1])).toString();
+    },
+
+    _functionSubtractDates: function(resolvedArgs) {
+      if (resolvedArgs[0] === 'now') {
+        resolvedArgs[0] = moment();
+      }
+
+      if (resolvedArgs[1] === 'now') {
+        resolvedArgs[1] = moment();
+      }
+
+      return moment(resolvedArgs[0]).subtract(moment(resolvedArgs[1])).toString();
+    },
+
+    _functionCompareDates: function(resolvedArgs) {
+      if (resolvedArgs[0] === 'now') {
+        resolvedArgs[0] = moment();
+      }
+
+      if (resolvedArgs[1] === 'now') {
+        resolvedArgs[1] = moment();
+      }
+
+      return moment(resolvedArgs[0]).diff(moment(resolvedArgs[1]), resolvedArgs[2], resolvedArgs[3]);
+    },
+
     _functionStartsWith: function(resolvedArgs) {
         return resolvedArgs[0].lastIndexOf(resolvedArgs[1]) === 0;
     },
@@ -1444,6 +1539,16 @@
             sum += inputArray[i];
         }
         return sum / inputArray.length;
+    },
+
+    _functionConcat: function(resolvedArgs) {
+      if (Array.isArray(resolvedArgs[0]) && Array.isArray(resolvedArgs[1])) {
+        return resolvedArgs[0].concat(resolvedArgs[1]);
+      } else if (typeof resolvedArgs[0] === "string" && typeof resolvedArgs[1] === "string") {
+        return resolvedArgs[0] + resolvedArgs[1];
+      } else {
+        return resolvedArgs[0];
+      }
     },
 
     _functionContains: function(resolvedArgs) {
@@ -1554,8 +1659,28 @@
         }
     },
 
+    _functionParent: function(resolvedArgs) {
+      var interpreter = this._interpreter;
+      var parser = new Parser();
+      var node = parser.parse(resolvedArgs[0]);
+      return interpreter.visit(node);
+    },
+
     _functionKeys: function(resolvedArgs) {
-        return Object.keys(resolvedArgs[0]);
+      return Object.keys(resolvedArgs[0]);
+    },
+
+    _functionUniq: function(resolvedArgs) {
+      var uniq = {};
+      var res = [];
+      var list = resolvedArgs[0];
+      for (var i = 0; i < list.length; i++) {
+        if (!uniq[JSON.stringify(list[i])]) {
+          uniq[JSON.stringify(list[i])] = true;
+          res.push(list[i]);
+        }
+      }
+      return res;
     },
 
     _functionValues: function(resolvedArgs) {
@@ -1580,6 +1705,12 @@
         } else {
             return [resolvedArgs[0]];
         }
+    },
+
+    _functionToEpoch: function(resolvedArgs, node, scopes) {
+      console.log('_functionToEpoch', node); // parent id
+
+      return (new Date(resolvedArgs).getTime());
     },
 
     _functionToString: function(resolvedArgs) {
@@ -1707,15 +1838,78 @@
       return minRecord;
     },
 
-    functionLet: function(resolvedArgs) {
+    _functionInnerJoin: function(resolvedArgs) {
+      var arrayLeft = resolvedArgs[0];
+      var arrayRight = resolvedArgs[1];
+      var keyFunction = this.createKeyFunction(resolvedArgs[2], [TYPE_ANY]);
+
+      var res = [];
+      var current, compare;
+      for (var i = 0; i < arrayLeft.length; i++) {
+        current = keyFunction(arrayLeft[i]);
+
+        for (var j = 0; j < arrayRight.length; j++) {
+          compare = keyFunction(arrayRight[j]);
+
+          if (current === compare) {
+            res.push(Object.assign({}, arrayLeft[i], arrayRight[j]));
+          }
+        }
+      }
+      return res;
+    },
+
+    _functionLeftJoin: function(resolvedArgs) {
+      var arrayLeft = resolvedArgs[0];
+      var arrayRight = resolvedArgs[1];
+      var keyFunction = this.createKeyFunction(resolvedArgs[2], [TYPE_ANY]);
+
+      var res = [];
+      var current, compare;
+      for (var i = 0; i < arrayLeft.length; i++) {
+        current = keyFunction(arrayLeft[i]);
+
+        for (var j = 0; j < arrayRight.length; j++) {
+          compare = keyFunction(arrayRight[j]);
+
+          if (current === compare) {
+            res.push(arrayLeft[i]);
+          }
+        }
+      }
+      return res;
+    },
+
+    _functionRightJoin: function(resolvedArgs) {
+      var arrayLeft = resolvedArgs[0];
+      var arrayRight = resolvedArgs[1];
+      var keyFunction = this.createKeyFunction(resolvedArgs[2], [TYPE_ANY]);
+
+      var res = [];
+      var current, compare;
+      for (var i = 0; i < arrayLeft.length; i++) {
+        current = keyFunction(arrayLeft[i]);
+
+        for (var j = 0; j < arrayRight.length; j++) {
+          compare = keyFunction(arrayRight[j]);
+
+          if (current === compare) {
+            res.push(arrayRight[j]);
+          }
+        }
+      }
+      return res;
+    },
+
+    _functionLet: function(resolvedArgs) {
       var scope = resolvedArgs[0];
       var expref = resolvedArgs[1];
       var interpreter = this._interpreter;
       this.scopeChain.pushScope(scope);
       try {
-          return interpreter.visit(expref, expref.context);
+        return interpreter.visit(expref, expref.context);
       } finally {
-          this.scopeChain.popScope();
+        this.scopeChain.popScope();
       }
     },
 
@@ -1724,7 +1918,7 @@
       var interpreter = this._interpreter;
       var keyFunc = function(x) {
         var current = interpreter.visit(exprefNode, x);
-        if (allowedTypes.indexOf(that._getTypeName(current)) < 0) {
+        if (allowedTypes.indexOf(TYPE_ANY) < 0 && allowedTypes.indexOf(that._getTypeName(current)) < 0) {
           var msg = "TypeError: expected one of " + allowedTypes +
                     ", received " + that._getTypeName(current);
           throw new Error(msg);

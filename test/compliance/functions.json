@@ -476,6 +476,18 @@
       "result": [false]
     },
     {
+      "expression": "to_epoch(false)",
+      "error": "invalid-type"
+    },
+    {
+      "expression": "to_epoch(`2018-04-13T16:50:28+00:00`)",
+      "result": 1523638228000
+    },
+    {
+      "expression": "parent(`foo`)",
+      "result": -1
+    },
+    {
       "expression": "to_string('foo')",
       "result": "foo"
     },

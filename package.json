@@ -1,11 +1,11 @@
 {
-  "name": "@trax/jmespath",
+  "name": "@liongard/jmespath",
   "description": "JMESPath implementation in javascript",
-  "version": "0.18.0",
+  "version": "1.0.1",
   "author": {
-    "name": "James Saryerwinnie",
-    "email": "js@jamesls.com",
-    "url": "http://jamesls.com/"
+    "name": "Liongard, Inc",
+    "email": "marc.fisher@liongard.com",
+    "url": "http://liongard.com/"
   },
   "homepage": "https://github.com/jmespath/jmespath.js",
   "contributors": [],
@@ -16,7 +16,10 @@
     "grunt-eslint": "^17.3.1",
     "mocha": "^2.1.0"
   },
-  "dependencies": {},
+  "dependencies": {
+    "gremlin": "^3.3.2",
+    "moment": "^2.22.1"
+  },
   "main": "jmespath.js",
   "directories": {
     "test": "test"
